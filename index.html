@@ -1,0 +1,388 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<link rel="icon" href="data:,">
+<title>Linimasa Kelompok PDP</title>
+<link rel="stylesheet" href="assets/tema.css">
+<style>
+.nav{display:flex;gap:6px;margin:0 0 14px;border-bottom:1px solid var(--line)}
+.nav a{padding:8px 14px;text-decoration:none;color:var(--muted);border-bottom:2px solid transparent;margin-bottom:-1px}
+.nav a.aktif{color:var(--ink);border-bottom-color:var(--accent);font-weight:600}
+.lencana.ok{color:var(--ok);border-color:var(--ok)}
+</style>
+</head>
+<body>
+
+<div id="gerbang">
+  <form class="kotak" id="formMasuk" autocomplete="off">
+    <h1>Linimasa Kelompok</h1>
+    <p class="sub">Masukkan kata sandi untuk membuka.</p>
+    <label class="sr" for="sandi">Kata sandi</label>
+    <input type="password" id="sandi" placeholder="Kata sandi" autofocus>
+    <p class="salah" id="salah" role="alert"></p>
+    <button class="btn primary" type="submit" style="width:100%">Masuk</button>
+  </form>
+</div>
+
+<div id="app" hidden>
+<div class="wrap">
+  <nav class="nav"><a class="aktif" href="index.html">Linimasa</a><a href="dokumen.html">Dokumen</a></nav>
+  <div class="atas">
+    <div>
+      <h1>Linimasa Kelompok PDP</h1>
+      <p class="sub">Hackathon Pelindungan Data Pribadi, DPR RI. Eral, Reza, Hafiz.</p>
+    </div>
+    <div class="alat">
+      <label for="saya">Saya:</label>
+      <select id="saya"><option value="">pilih nama</option><option>Eral</option><option>Reza</option><option>Hafiz</option></select>
+      <button class="btn" id="btnSalin" type="button">Salin status</button>
+      <button class="btn" id="btnImpor" type="button">Impor</button>
+      <a class="btn" id="btnGitHub" href="#" target="_blank" rel="noopener" hidden>Edit di GitHub</a>
+      <button class="btn" id="btnKeluar" type="button">Keluar</button>
+    </div>
+  </div>
+
+  <div class="hitung" id="hitung" aria-live="polite"></div>
+
+  <h2>Ringkasan</h2>
+  <div class="ring" id="ring"></div>
+
+  <h2>Aturan</h2>
+  <div class="aturan">
+    Sebuah tugas hanya bisa diubah statusnya setelah <b>semua tugas pendahulunya berstatus Selesai</b>. Sebelum itu, pilihan status terkunci dan tertulis siapa yang ditunggu. Status: <b>Belum</b>, <b>Sedang dikerjakan</b>, <b>Revisi</b>, <b>Selesai</b>. Jika pendahulu yang sudah Selesai diubah ke Revisi, tugas yang sudah berjalan tidak dikembalikan otomatis, hanya diberi tanda peringatan.
+  </div>
+
+  <h2>Tugas</h2>
+  <div class="filter">
+    <input type="search" id="cari" placeholder="Cari kode atau tugas" aria-label="Cari">
+    <span id="chipOrang"></span>
+    <select id="fStatus" aria-label="Filter status">
+      <option value="">Semua status</option>
+      <option value="belum">Belum</option>
+      <option value="sedang">Sedang dikerjakan</option>
+      <option value="revisi">Revisi</option>
+      <option value="selesai">Selesai</option>
+    </select>
+    <label><input type="checkbox" id="fSiap"> hanya yang siap dimulai</label>
+  </div>
+  <div id="daftar"></div>
+
+  <h2>Diagram alur</h2>
+  <details id="diagram"><summary>Tampilkan diagram</summary><p class="sub">Panah berarti harus selesai dulu sebelum yang ditunjuk boleh mulai.</p><img src="alur.png" alt="Diagram alur ketergantungan tugas" loading="lazy"></details>
+
+  <p class="catatan-kaki" id="kaki"></p>
+</div>
+</div>
+
+<dialog id="dlgImpor">
+  <form method="dialog">
+    <b>Impor status</b>
+    <p class="sub">Tempel JSON dari tombol "Salin status" milik anggota lain. Entri yang lebih baru menang.</p>
+    <textarea id="taImpor" aria-label="JSON status"></textarea>
+    <div class="alat" style="justify-content:flex-end">
+      <button class="btn" value="batal">Batal</button>
+      <button class="btn primary" id="okImpor" value="ok">Impor</button>
+    </div>
+  </form>
+</dialog>
+<div id="toast" role="status"></div>
+
+<script src="assets/konfig.js"></script>
+<script>
+"use strict";
+var TASKS = [{"id": "E1", "grup": "Mulai sekarang", "judul": "Setup proyek, database awal, scan \"sebelum\", 5 user", "detail": "Siapkan folder proyek di PC resmi, impor dataset, jalankan scan awal, buat lima user dan uji akses.", "orang": "Eral", "deps": [], "target": "Sen malam"}, {"id": "H1", "grup": "Mulai sekarang", "judul": "Tinjau skrip benchmark sebelum baseline", "detail": "Hanya meninjau kode. Harus selesai sebelum E2 karena mengubah skrip setelah baseline membuat angka tidak sebanding.", "orang": "Hafiz", "deps": [], "target": "Sen malam"}, {"id": "R1", "grup": "Mulai sekarang", "judul": "Diagram arsitektur dan model ancaman", "detail": "", "orang": "Reza", "deps": [], "target": "Sel 20.00"}, {"id": "R3", "grup": "Mulai sekarang", "judul": "SBOM dan lisensi", "detail": "SBOM format CycloneDX; lisensi kode, dokumen, dan catatan data.", "orang": "Reza", "deps": [], "target": "Rab 12.00"}, {"id": "R4", "grup": "Mulai sekarang", "judul": "Tulis skrip rotasi kunci", "detail": "Rotasi kunci v1 ke v2 dengan hitung ulang blind index. Diuji Eral di E6.", "orang": "Reza", "deps": [], "target": "Sel 20.00"}, {"id": "H3", "grup": "Mulai sekarang", "judul": "Pertanyaan ke panitia (terus berjalan)", "detail": "Arti kolom ruangan, nama_kppn, nip_kppn masih menunggu panitia. Catat setiap jawaban.", "orang": "Hafiz", "deps": [], "target": "harian"}, {"id": "E2", "grup": "Sistem di PC resmi", "judul": "Benchmark \"sebelum\" (baseline)", "detail": "Dijalankan setelah skrip ditinjau (H1). Minimal 3 ulangan, laporkan median, p50, p95.", "orang": "Eral", "deps": ["E1", "H1"], "target": "Sen malam"}, {"id": "E3", "grup": "Sistem di PC resmi", "judul": "Migrasi enkripsi kolom", "detail": "", "orang": "Eral", "deps": ["E2"], "target": "Sen malam"}, {"id": "E4", "grup": "Sistem di PC resmi", "judul": "Backup dan restore (langkah 1 sampai 9)", "detail": "", "orang": "Eral", "deps": ["E3"], "target": "Sel siang"}, {"id": "D1", "grup": "Sistem di PC resmi", "judul": "Inventaris dan klasifikasi final", "detail": "", "orang": "Eral", "deps": ["E3"], "target": "Sel 20.00"}, {"id": "E5", "grup": "Sistem di PC resmi", "judul": "Pelapisan MySQL (keyring, tablespace, TLS, audit, view)", "detail": "", "orang": "Eral", "deps": ["E4"], "target": "Sel malam"}, {"id": "E6", "grup": "Sistem di PC resmi", "judul": "Uji rotasi kunci v1 ke v2", "detail": "", "orang": "Eral", "deps": ["E5", "R4"], "target": "Rab pagi"}, {"id": "E7", "grup": "Sistem di PC resmi", "judul": "Bukti 7 uji, log, serangan dari skenario R5, benchmark \"sesudah\"", "detail": "", "orang": "Eral", "deps": ["E6", "R5"], "target": "Rab 12.00"}, {"id": "V1", "grup": "Sistem di PC resmi", "judul": "Rekam klip pendek per uji", "detail": "Satu klip per topik, tanpa suara, direkam saat mengerjakan langkah resmi (E3 sampai E7). Hanya layar aman.", "orang": "Eral", "deps": ["E3"], "target": "Rab 20.00"}, {"id": "R2", "grup": "Rancangan dan penulisan", "judul": "Matriks risiko dan klasifikasi data", "detail": "Spesifik atau Umum, dengan alasan.", "orang": "Reza", "deps": ["R1"], "target": "Rab 12.00"}, {"id": "R5", "grup": "Rancangan dan penulisan", "judul": "Skenario serangan red team", "detail": "Daftar serangan terhadap rancangan beserta perintah dan hasil yang diharapkan. Harus siap sebelum E7.", "orang": "Reza", "deps": ["R1"], "target": "Rab 08.00"}, {"id": "S1", "grup": "Rancangan dan penulisan", "judul": "Kerangka slide", "detail": "", "orang": "Hafiz", "deps": ["R1"], "target": "Rab 12.00"}, {"id": "K1", "grup": "Rancangan dan penulisan", "judul": "Daftar keterbatasan", "detail": "Jujur dan lengkap; hal yang belum diuji ditulis sebagai rancangan atau keterbatasan.", "orang": "Hafiz", "deps": ["E5"], "target": "Rab 20.00"}, {"id": "R6", "grup": "Rancangan dan penulisan", "judul": "Analisis hasil serangan", "detail": "Mana yang tertahan, mana yang lolos, dan apa sisa risikonya.", "orang": "Reza", "deps": ["E7"], "target": "Rab 20.00"}, {"id": "H5", "grup": "Rancangan dan penulisan", "judul": "Audit 7 uji kontrol akses", "detail": "Dari paket bukti tersensor.", "orang": "Hafiz", "deps": ["E7"], "target": "Rab 20.00"}, {"id": "L2", "grup": "Rancangan dan penulisan", "judul": "Laporan bagian hasil", "detail": "", "orang": "Reza", "deps": ["E7", "R2", "R3"], "target": "Rab 20.00"}, {"id": "RD", "grup": "Rancangan dan penulisan", "judul": "README akhir", "detail": "", "orang": "Eral", "deps": ["E7"], "target": "Rab 20.00"}, {"id": "S2", "grup": "Rancangan dan penulisan", "judul": "Slide: isi angka dan bukti tersensor", "detail": "", "orang": "Hafiz", "deps": ["E7", "S1"], "target": "Rab 20.00"}, {"id": "V2", "grup": "Rancangan dan penulisan", "judul": "Sunting klip jadi satu video", "detail": "Tanpa suara, dengan teks keterangan.", "orang": "Hafiz", "deps": ["V1", "S2"], "target": "Kam 12.00"}, {"id": "L3", "grup": "Rancangan dan penulisan", "judul": "Laporan final", "detail": "", "orang": "Reza", "deps": ["L2", "H5", "K1", "R6"], "target": "Kam 14.00"}, {"id": "BEKU", "grup": "Penutup", "judul": "Kode dan angka benchmark dibekukan", "detail": "Setelah ini hanya dokumen yang boleh berubah.", "orang": "Semua", "deps": ["E7"], "target": "Rab 22.00"}, {"id": "TS", "grup": "Penutup", "judul": "Tinjau silang semua berkas", "detail": "Penanggung jawab tidak memeriksa tugasnya sendiri.", "orang": "Semua", "deps": ["L3", "V2", "RD", "D1", "H5", "BEKU"], "target": "Kam 18.00"}, {"id": "KUNCI", "grup": "Penutup", "judul": "Kunci versi final", "detail": "", "orang": "Semua", "deps": ["TS"], "target": "Kam 20.00"}, {"id": "DR", "grup": "Penutup", "judul": "Susun folder Drive, atur akses, uji tautan", "detail": "Uji dari jendela penyamaran. Isi folder tidak boleh diubah setelah dikirim.", "orang": "Hafiz", "deps": ["KUNCI"], "target": "Kam 21.00"}, {"id": "KIRIM", "grup": "Penutup", "judul": "Kirim formulir", "detail": "Satu orang yang ditunjuk. Batas Kamis 29 Okt pukul 23.59 WIB.", "orang": "Semua", "deps": ["DR"], "target": "sebelum Kam 23.59"}];
+var DEADLINE = new Date("2026-10-29T23:59:00+07:00");
+var STATUS = [["belum","Belum"],["sedang","Sedang dikerjakan"],["revisi","Revisi"],["selesai","Selesai"]];
+var ORANG = ["Eral","Reza","Hafiz","Semua"];
+var KUNCI_LOKAL = "linimasa_pdp_lokal_v1";
+var KUNCI_NAMA = "linimasa_pdp_nama_v1";
+
+
+
+/* ---------- status: gabungan status bersama dan perubahan lokal ---------- */
+var remote = {};   /* dari status.json */
+var lokal = {};    /* perubahan di perangkat ini */
+var byId = {};
+TASKS.forEach(function(t){ byId[t.id] = t; });
+
+function bacaLokal(){
+  var s = simpanBaca(KUNCI_LOKAL);
+  try { lokal = s ? (JSON.parse(s) || {}) : {}; } catch(e){ lokal = {}; }
+}
+function tulisLokal(){ simpanTulis(KUNCI_LOKAL, JSON.stringify(lokal)); }
+
+function entriBaru(a, b){            /* kembalikan yang lebih baru */
+  if (!a) return b; if (!b) return a;
+  return (a.t || "") >= (b.t || "") ? a : b;
+}
+function entri(id){
+  var e = entriBaru(remote[id], lokal[id]);
+  return e || { s: "belum", o: "", t: "", n: "" };
+}
+function statusDari(id){ return entri(id).s || "belum"; }
+function gabungan(){
+  var out = {};
+  TASKS.forEach(function(t){
+    var e = entriBaru(remote[t.id], lokal[t.id]);
+    if (e && (e.t || e.s !== "belum" || e.n)) out[t.id] = { s: e.s || "belum", o: e.o || "", t: e.t || "", n: e.n || "" };
+  });
+  return out;
+}
+function belumSelesai(t){
+  return t.deps.filter(function(d){ return statusDari(d) !== "selesai"; });
+}
+function sekarang(){ return new Date().toISOString(); }
+
+function ubah(id, patch){
+  var lama = entri(id);
+  var baru = { s: lama.s || "belum", o: lama.o || "", t: lama.t || "", n: lama.n || "" };
+  for (var k in patch) baru[k] = patch[k];
+  baru.o = document.getElementById("saya").value || baru.o || "";
+  baru.t = sekarang();
+  lokal[id] = baru;
+  tulisLokal();
+  render();
+  kirimServer([id]);
+}
+
+/* ---------- tampilan ---------- */
+function el(tag, cls, text){
+  var e = document.createElement(tag);
+  if (cls) e.className = cls;
+  if (text != null) e.textContent = text;
+  return e;
+}
+function toast(msg){
+  var t = document.getElementById("toast");
+  t.textContent = msg; t.className = "on";
+  clearTimeout(toast._h); toast._h = setTimeout(function(){ t.className = ""; }, 2600);
+}
+var filterOrang = "";
+
+function renderHitung(){
+  var box = document.getElementById("hitung"); box.textContent = "";
+  var ms = DEADLINE - new Date();
+  var s;
+  if (ms <= 0) s = "Batas kirim sudah lewat";
+  else {
+    var hari = Math.floor(ms / 864e5), jam = Math.floor(ms % 864e5 / 36e5), mnt = Math.floor(ms % 36e5 / 6e4);
+    s = hari + " hari " + jam + " jam " + mnt + " menit";
+  }
+  var a = el("span"); a.appendChild(document.createTextNode("Batas kirim: Kamis 29 Okt 2026 23.59 WIB. Sisa "));
+  a.appendChild(el("b", null, s)); box.appendChild(a);
+  var lokalN = Object.keys(lokal).filter(function(id){
+    var r = remote[id], l = lokal[id]; return !r || (l.t || "") > (r.t || "");
+  }).length;
+  if (modeServer === true){
+    box.appendChild(el("span", "lencana ok", lokalN ? "Tersambung ke server, mengirim " + lokalN + " perubahan" : "Tersambung ke server: status dibagikan otomatis"));
+  } else if (modeServer === false){
+    box.appendChild(el("span", "lencana kunci", "Status dibagikan lewat status.json (manual)"));
+    if (lokalN) box.appendChild(el("span", "lencana awas", lokalN + " perubahan hanya ada di perangkat ini. Klik \"Salin status\" lalu tempel ke status.json di GitHub (tombol Edit di GitHub)."));
+  }
+}
+
+function renderRingkasan(){
+  var box = document.getElementById("ring"); box.textContent = "";
+  var grup = [["Semua tugas", TASKS]];
+  ["Eral","Reza","Hafiz"].forEach(function(n){ grup.push([n, TASKS.filter(function(t){ return t.orang === n; })]); });
+  grup.push(["Bersama", TASKS.filter(function(t){ return t.orang === "Semua"; })]);
+  grup.forEach(function(g){
+    var tot = g[1].length, sel = g[1].filter(function(t){ return statusDari(t.id) === "selesai"; }).length;
+    var jalan = g[1].filter(function(t){ return statusDari(t.id) === "sedang"; }).length;
+    var rev = g[1].filter(function(t){ return statusDari(t.id) === "revisi"; }).length;
+    var k = el("div", "kartu");
+    var j = el("div", "judul"); j.appendChild(el("span", null, g[0])); j.appendChild(el("span", null, sel + "/" + tot)); k.appendChild(j);
+    k.appendChild(el("div", "angka", (tot ? Math.round(sel * 100 / tot) : 0) + "%"));
+    var bar = el("div", "bar"); var i = el("i"); i.style.width = (tot ? sel * 100 / tot : 0) + "%"; bar.appendChild(i); k.appendChild(bar);
+    k.appendChild(el("div", "jejak", jalan + " sedang dikerjakan, " + rev + " revisi"));
+    box.appendChild(k);
+  });
+}
+
+function renderChip(){
+  var box = document.getElementById("chipOrang"); box.textContent = "";
+  [["", "Semua orang"]].concat(ORANG.map(function(o){ return [o, o]; })).forEach(function(p){
+    var b = el("button", "chip", p[1]); b.type = "button";
+    b.setAttribute("aria-pressed", filterOrang === p[0] ? "true" : "false");
+    b.addEventListener("click", function(){ filterOrang = p[0]; render(); });
+    box.appendChild(b); box.appendChild(document.createTextNode(" "));
+  });
+}
+
+function renderDaftar(){
+  var box = document.getElementById("daftar"); box.textContent = "";
+  var q = document.getElementById("cari").value.trim().toLowerCase();
+  var fs = document.getElementById("fStatus").value;
+  var siapSaja = document.getElementById("fSiap").checked;
+  var grupSekarang = null, ada = 0;
+  TASKS.forEach(function(t){
+    var st = statusDari(t.id), tunggu = belumSelesai(t);
+    var terkunci = st === "belum" && tunggu.length > 0;
+    var siap = st === "belum" && tunggu.length === 0;
+    if (filterOrang && t.orang !== filterOrang) return;
+    if (fs && st !== fs) return;
+    if (siapSaja && !siap) return;
+    if (q && (t.id + " " + t.judul + " " + t.detail + " " + t.orang).toLowerCase().indexOf(q) < 0) return;
+    if (t.grup !== grupSekarang){ grupSekarang = t.grup; box.appendChild(el("h2", null, t.grup)); }
+    ada++;
+    var e = entri(t.id);
+    var kartu = el("div", "tugas " + st + (terkunci ? " terkunci" : ""));
+    var kiri = el("div");
+    var b1 = el("div", "baris1");
+    b1.appendChild(el("span", "kode", t.id));
+    b1.appendChild(el("span", "judul-t", t.judul));
+    b1.appendChild(el("span", "orang " + t.orang, t.orang));
+    if (siap) b1.appendChild(el("span", "lencana siap", "Siap dimulai"));
+    if (terkunci) b1.appendChild(el("span", "lencana kunci", "Terkunci: menunggu " + tunggu.join(", ")));
+    if (!terkunci && st !== "belum" && tunggu.length) b1.appendChild(el("span", "lencana awas", "Perhatian: " + tunggu.join(", ") + " belum selesai"));
+    kiri.appendChild(b1);
+    kiri.appendChild(el("div", "meta", "Target: " + t.target + (t.deps.length ? "  |  Mulai setelah: " + t.deps.join(", ") : "  |  Bisa dimulai sekarang")));
+    if (t.detail) kiri.appendChild(el("div", "detail", t.detail));
+    kartu.appendChild(kiri);
+
+    var kanan = el("div", "kontrol");
+    var sel = document.createElement("select");
+    sel.setAttribute("aria-label", "Status " + t.id);
+    sel.setAttribute("data-s", st);
+    STATUS.forEach(function(p){
+      var o = document.createElement("option"); o.value = p[0]; o.textContent = p[1]; if (p[0] === st) o.selected = true; sel.appendChild(o);
+    });
+    if (terkunci){ sel.disabled = true; sel.title = "Menunggu: " + tunggu.join(", "); }
+    sel.addEventListener("change", function(){
+      var nilai = sel.value;
+      if (nilai !== "belum" && belumSelesai(t).length){ sel.value = st; toast("Terkunci: menunggu " + belumSelesai(t).join(", ")); return; }
+      ubah(t.id, { s: nilai });
+    });
+    kanan.appendChild(sel);
+    var cat = document.createElement("input");
+    cat.type = "text"; cat.placeholder = "Catatan singkat"; cat.value = e.n || ""; cat.maxLength = 140;
+    cat.setAttribute("aria-label", "Catatan " + t.id);
+    if (terkunci) cat.disabled = true;
+    cat.addEventListener("change", function(){ ubah(t.id, { n: cat.value.trim() }); });
+    kanan.appendChild(cat);
+    if (e.t){
+      var d = new Date(e.t);
+      kanan.appendChild(el("div", "jejak", (e.o ? e.o + ", " : "") + d.toLocaleString("id-ID", { day:"numeric", month:"short", hour:"2-digit", minute:"2-digit" })));
+    }
+    kartu.appendChild(kanan);
+    box.appendChild(kartu);
+  });
+  if (!ada) box.appendChild(el("p", "sub", "Tidak ada tugas yang cocok dengan filter."));
+}
+
+function render(){
+  renderHitung(); renderRingkasan(); renderChip(); renderDaftar();
+}
+
+/* ---------- status bersama: status.php (otomatis) atau status.json (manual) ---------- */
+var modeServer = null;   /* null = belum tahu, true = status.php aktif, false = manual */
+var tik = 0;
+function terapkanRemote(j){
+  var s = (j && j.status) || {}, baru = {};
+  Object.keys(s).forEach(function(id){
+    if (byId[id] && s[id] && typeof s[id] === "object") baru[id] = { s: String(s[id].s || "belum"), o: String(s[id].o || ""), t: String(s[id].t || ""), n: String(s[id].n || "").slice(0, 140) };
+  });
+  remote = baru;
+}
+function idLokalBaru(){
+  return Object.keys(lokal).filter(function(id){ var r = remote[id]; return !r || (lokal[id].t || "") > (r.t || ""); });
+}
+function ambilRemote(diam){
+  if (location.protocol !== "http:" && location.protocol !== "https:") return;
+  if (modeServer === false && (tik++ % 4) !== 0 && diam) return;
+  var url = modeServer === false ? "status.json" : "status.php";
+  fetch(url + "?ts=" + Date.now(), { cache: "no-store" })
+    .then(function(r){ if (!r.ok) throw new Error(r.status); return r.text(); })
+    .then(function(txt){
+      var j = JSON.parse(txt);
+      modeServer = (url === "status.php");
+      terapkanRemote(j);
+      if (modeServer){
+        var ids = idLokalBaru();
+        if (ids.length) kirimServer(ids);
+      }
+      render();
+      if (!diam) toast(modeServer ? "Tersambung ke server" : "Status dimuat dari status.json");
+    })
+    .catch(function(){
+      if (url === "status.php"){ modeServer = false; tik = 0; ambilRemote(diam); }
+      else { render(); if (!diam) toast("Status server belum bisa dimuat. Dipakai status di perangkat ini."); }
+    });
+}
+function kirimServer(ids){
+  if (modeServer !== true) return;
+  var entries = {};
+  ids.forEach(function(id){ if (lokal[id]) entries[id] = lokal[id]; });
+  if (!Object.keys(entries).length) return;
+  fetch("status.php", { method: "POST", headers: { "Content-Type": "application/json", "X-Requested-With": "linimasa" }, body: JSON.stringify({ entries: entries }) })
+    .then(function(r){ if (!r.ok) throw new Error(r.status); return r.json(); })
+    .then(function(j){
+      terapkanRemote(j);
+      Object.keys(lokal).forEach(function(id){ var r = remote[id]; if (r && (r.t || "") >= (lokal[id].t || "")) delete lokal[id]; });
+      tulisLokal(); render();
+    })
+    .catch(function(){ toast("Gagal mengirim ke server. Perubahan tersimpan di perangkat ini dan dicoba lagi."); render(); });
+}
+
+function salinan(){
+  return JSON.stringify({ versi: 1, diperbarui: sekarang(), status: gabungan() }, null, 2);
+}
+function salinKe(teks){
+  if (navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(teks).then(function(){ toast("Status disalin. Tempel ke status.json di GitHub."); }, function(){ cadangSalin(teks); });
+  } else cadangSalin(teks);
+}
+function cadangSalin(teks){
+  var ta = document.createElement("textarea"); ta.value = teks; ta.style.position = "fixed"; ta.style.opacity = "0";
+  document.body.appendChild(ta); ta.select();
+  try { document.execCommand("copy"); toast("Status disalin. Tempel ke status.json di GitHub."); } catch(e){ toast("Gagal menyalin. Pilih teks manual."); }
+  document.body.removeChild(ta);
+}
+function imporJson(teks){
+  var j; try { j = JSON.parse(teks); } catch(e){ toast("JSON tidak valid."); return; }
+  var s = (j && j.status) || {}, n = 0;
+  Object.keys(s).forEach(function(id){
+    var e = s[id];
+    if (!byId[id] || !e || typeof e !== "object") return;
+    var s2 = String(e.s || "belum");
+    if (!STATUS.some(function(p){ return p[0] === s2; })) return;
+    var baru = { s: s2, o: String(e.o || ""), t: String(e.t || ""), n: String(e.n || "").slice(0, 140) };
+    var lama = entri(id);
+    if ((baru.t || "") > (lama.t || "")){ lokal[id] = baru; n++; }
+  });
+  tulisLokal(); render(); toast(n + " entri diperbarui.");
+}
+
+/* ---------- mulai ---------- */
+function githubUrl(host, path){
+  host = host || location.hostname; path = path || location.pathname;
+  if (!/\.github\.io$/.test(host)) return "";
+  var user = host.split(".")[0], repo = path.split("/")[1] || host;
+  return "https://github.com/" + user + "/" + repo;
+}
+function buka(){
+  bacaLokal();
+  var gh = githubUrl(); var tb = document.getElementById("btnGitHub");
+  if (gh){ tb.href = gh + "/edit/main/status.json"; tb.hidden = false; }
+  var nama = simpanBaca(KUNCI_NAMA); if (nama) document.getElementById("saya").value = nama;
+  document.getElementById("kaki").textContent = "Kata sandi di halaman hanyalah pintu, bukan pengaman. Jangan menulis data rahasia di catatan. Status bersama disimpan di status.json pada repo GitHub; perubahan di perangkat ini baru terlihat orang lain setelah status.json di-commit.";
+  render(); ambilRemote(true);
+  setInterval(function(){ renderHitung(); }, 30000);
+  setInterval(function(){ ambilRemote(true); }, 15000);
+}
+document.getElementById("btnKeluar").addEventListener("click", keluar);
+document.getElementById("saya").addEventListener("change", function(e){ simpanTulis(KUNCI_NAMA, e.target.value); });
+document.getElementById("btnSalin").addEventListener("click", function(){ salinKe(salinan()); });
+document.getElementById("btnImpor").addEventListener("click", function(){
+  var d = document.getElementById("dlgImpor"); document.getElementById("taImpor").value = "";
+  if (d.showModal) d.showModal(); else toast("Browser tidak mendukung dialog.");
+});
+document.getElementById("okImpor").addEventListener("click", function(){ imporJson(document.getElementById("taImpor").value); });
+["cari","fStatus","fSiap"].forEach(function(id){ document.getElementById(id).addEventListener("input", renderDaftar); });
+pasangGerbang(buka);
+</script>
+</body>
+</html>
